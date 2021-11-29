@@ -3,6 +3,7 @@ package com.hieubui00it.aesencryption.util.aes;
 /**
  * @author hieubui00.it
  */
+
 public class Rcon {
     private final int[] RCON = {
         //0     1     2     3     4     5     6     7     8     9     A     B     C     D     E     F

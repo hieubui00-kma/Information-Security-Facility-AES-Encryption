@@ -5,6 +5,10 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * @author hieubui00.it
+ */
+
 public class LiveData<D> {
     protected D value;
 
@@ -12,10 +16,6 @@ public class LiveData<D> {
 
     public LiveData() {
         this.value = null;
-    }
-
-    public LiveData(D value) {
-        this.value = value;
     }
 
     public void observer(Observer<D> observer) {
@@ -28,10 +28,5 @@ public class LiveData<D> {
         if (value != null) {
             observer.onChange(value);
         }
-    }
-
-    @Nullable
-    public D getValue() {
-        return value;
     }
 }

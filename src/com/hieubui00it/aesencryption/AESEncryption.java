@@ -1,6 +1,6 @@
 package com.hieubui00it.aesencryption;
 
-import com.hieubui00it.aesencryption.ui.Home;
+import com.hieubui00it.aesencryption.ui.MainFrame;
 
 import javax.swing.*;
 import java.awt.*;
@@ -15,7 +15,7 @@ public class AESEncryption {
     public static void main(String[] args) {
         EventQueue.invokeLater(() -> {
             try {
-                new Home().setVisible(true);
+                new MainFrame().setVisible(true);
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
             } catch (Exception e) {
                 e.printStackTrace();
