@@ -29,19 +29,22 @@ public class HomeViewModel {
             return;
         }
 
-        AES aes = new AES(encryptKey.getBytes());
+        AES aes = new AES();
         byte[] plaintextBytes = fillBlock(plaintext).getBytes();
 
         long startTime = System.nanoTime();
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         for (int i = 0; i < plaintextBytes.length; i += 16) {
             try {
-                output.write(aes.encrypt(Arrays.copyOfRange(plaintextBytes, i, i + 16)));
+                output.write(aes.encrypt(Arrays.copyOfRange(plaintextBytes, i, i + 16), encryptKey.getBytes()));
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
         long encryptTime = System.nanoTime() - startTime;
+        for (byte b : output.toByteArray()) {
+            System.out.printf("%02x ", b);
+        }
 
         String textEncrypted = Base64.getEncoder().encodeToString(output.toByteArray());
         _textEncrypted.postValue(textEncrypted);
@@ -71,7 +74,7 @@ public class HomeViewModel {
 
     private String fillBlock(String text) {
         int spaceNum = (text.getBytes().length % 16 == 0) ? 0 : (16 - text.getBytes().length % 16);
-        return text + " ".repeat(spaceNum);
+        return text + "\0".repeat(spaceNum);
     }
 
     public void decrypt(@NotNull String decryptKey, @NotNull String ciphertext) {
@@ -83,21 +86,21 @@ public class HomeViewModel {
 
         switch (decryptKey.length()) {
             case 16, 24, 32 -> {    // 128-bit, 192-bit, 256-bit
-                AES aes = new AES(decryptKey.getBytes());
+                AES aes = new AES();
                 byte[] ciphertextBytes = Base64.getDecoder().decode(ciphertext);
 
                 long startTime = System.nanoTime();
                 ByteArrayOutputStream output = new ByteArrayOutputStream();
                 for (int i = 0; i < ciphertextBytes.length; i += 16) {
                     try {
-                        output.write(aes.decrypt(Arrays.copyOfRange(ciphertextBytes, i, i + 16)));
+                        output.write(aes.decrypt(Arrays.copyOfRange(ciphertextBytes, i, i + 16), decryptKey.getBytes()));
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
                 }
                 long decryptTime = System.nanoTime() - startTime;
 
-                _textDecrypted.postValue(output.toString());
+                _textDecrypted.postValue(output.toString().replace("\0", ""));
                 _decryptTime.postValue(decryptTime);
             }
 

@@ -111,7 +111,7 @@ public class Home extends JPanel {
 
     public void encrypt() {
         String key = fieldKey.getText().trim();
-        String plaintext = fieldOriginalText.getText().trim();
+        String plaintext = fieldOriginalText.getText();
         viewModel.encrypt(key, plaintext);
     }
 
@@ -143,7 +143,7 @@ public class Home extends JPanel {
                 BorderFactory.createEmptyBorder(3, 5, 3, 5)
             )
         );
-        fieldDecryptedText.setFocusable(false);
+        fieldDecryptedText.setEditable(false);
 
         JScrollPane scrollPane = new JScrollPane(fieldDecryptedText);
         scrollPane.setBounds(1048, 128, 360, 560);

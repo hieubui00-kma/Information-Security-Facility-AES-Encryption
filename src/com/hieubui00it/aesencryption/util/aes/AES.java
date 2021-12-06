@@ -1,50 +1,21 @@
 package com.hieubui00it.aesencryption.util.aes;
 
-/**
- * @author hieubui00.it
- */
-
 public class AES {
     /**
      * Number of columns containing a state in AES. This is a constant in AES
      */
     private static final int Nb = 4;
 
-    /**
-     * Nk = 10, 12, 14 depending on the length key (128-bit, 192-bit, 256-bit)
-     */
-    private final int Nk;
-
-    /**
-     * Number of loops in AES Cipher.
-     * <p>
-     * Nr = 10, 12, 14 depending on the length key (128-bit, 192-bit, 256-bit)
-     */
-    private final int Nr;
-
-    /**
-     * The storage array creation for the states.<br>
-     * Only 2 states with 4 rows and Nb columns are required.
-     */
-    private final int[][][] state = new int[2][4][Nb];
-
-    // key stuff
-    private final int[] roundKey;
-
-    private final int[] key;
-
     private final SBox sBox = new SBox();
 
     private final Rcon rcon = new Rcon();
 
-    public AES(byte[] key) {
-        this.key = new int[key.length];
+    public AES() {
 
-        // Copy key
-        for (int i = 0; i < key.length; i++) {
-            this.key[i] = key[i];
-        }
+    }
 
+    public byte[] encrypt(byte[] plaintext, byte[] key) {
+        int Nr, Nk;
         switch (key.length) {
             case 16 -> {    // 128-bit key
                 Nr = 10;
@@ -64,292 +35,208 @@ public class AES {
             default -> throw new IllegalArgumentException("It only supports 128, 192 and 256 bit keys!");
         }
 
-        // The storage vector for the expansion of the key creation.
-        roundKey = new int[Nb * (Nr + 1)];
+        byte[][] roundKey = expandKey(key, Nr, Nk);
+        byte[] output = addRoundKey(plaintext, roundKey[0]);
+        for (int i = 1; i < Nr; i++) {
+            output = subByte(output);
+            output = shiftRows(output);
+            output = mixColumns(output);
+            output = addRoundKey(output, roundKey[i]);
+        }
 
-        // Key expansion
-        expandKey();
+        output = subByte(output);
+        output = shiftRows(output);
+        output = addRoundKey(output, roundKey[Nr]);
+
+        return output;
     }
 
-    private void expandKey() {
-        int temp, i = 0;
-
-        while (i < Nk) {
-            roundKey[i] = 0x00000000;
-            roundKey[i] |= key[4 * i] << 24;
-            roundKey[i] |= key[4 * i + 1] << 16;
-            roundKey[i] |= key[4 * i + 2] << 8;
-            roundKey[i] |= key[4 * i + 3];
-            i++;
+    private byte[][] expandKey(byte[] key, int Nr, int Nk) {
+        if (key.length != 4 * Nk) {
+            throw new IllegalArgumentException("Key length is incorrect!");
         }
 
-        i = Nk;
+        int[] output = new int[Nb * (Nr + 1)];
+        int temp;
+        for (int i = 0; i < Nk; i++) {
+            output[i] = (key[4 * i] & 0xff) << 24 | (key[4 * i + 1] & 0xff) << 16 | (key[4 * i + 2] & 0xff) << 8 | (key[4 * i + 3] & 0xff) << 0;
+        }
 
-        while (i < Nb * (Nr + 1)) {
-            temp = roundKey[i - 1];
-
+        for (int i = Nk; i < Nb * (Nr + 1); i++) {
+            temp = output[i - 1];
             if (i % Nk == 0) {
-                temp = subWord(rotWord(temp)) ^ (rcon.getRconValue(i / Nk) << 24);
-            } else if (Nk > 6 && (i % Nk == 4)) {
+                int subWord = subWord(rotWord(temp));
+                temp = subWord ^ getRcon(i / Nk);
+            } else if ((Nk > 6) && (i % Nk == 4)) {
                 temp = subWord(temp);
             }
-
-            roundKey[i] = roundKey[i - Nk] ^ temp;
-            i++;
+            output[i] = output[i - Nk] ^ temp;
         }
+
+        int k = 0;
+        byte[][] roundKey = new byte[output.length / 4][16];
+        for (int i = 0; i < output.length / 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                int tempInt = output[k++];
+                roundKey[i][j * 4] = (byte) (0xff & (tempInt >> 24));
+                roundKey[i][j * 4 + 1] = (byte) (0xff & (tempInt >> 16));
+                roundKey[i][j * 4 + 2] = (byte) (0xff & (tempInt >> 8));
+                roundKey[i][j * 4 + 3] = (byte) (0xff & tempInt);
+            }
+        }
+
+        return roundKey;
     }
 
     private int rotWord(int word) {
-        return (word << 8) | ((word & 0xFF000000) >>> 24);
+        return (word << 8) | ((word >> 24) & 0xff);
     }
 
     private int subWord(int word) {
-        int subWord = 0;
-        for (int i = 24; i >= 0; i -= 8) {
-            int in = word << i >>> 24;
-            subWord |= sBox.getSBoxValue(in) << (24 - i);
+        int subWord = 0x0;
+        for (int i = 0; i < 4; i++) {
+            int row = (int) (word >> (28 - i * 8)) & 0x0f;
+            int col = (int) (word >> (24 - i * 8)) & 0x0f;
+            subWord |= sBox.getSBoxValue(16 * row + col) << (24 - i * 8);
         }
         return subWord;
     }
 
-    public byte[] encrypt(byte[] input) {
-        if (input.length != 16) {
-            throw new IllegalArgumentException("Only 16-byte blocks can be encrypted");
-        }
+    private int getRcon(int index) {
+        return rcon.getRconValue(index) << 24;
+    }
 
-        byte[] output = new byte[input.length];
-
-        for (int column = 0; column < Nb; column++) {
-            for (int row = 0; row < 4; row++) {
-                state[0][row][column] = input[column * Nb + row] & 0xff;
-            }
-        }
-
-        cipher(state[0], state[1]);
-
-        for (int i = 0; i < Nb; i++) {
-            for (int j = 0; j < 4; j++) {
-                output[i * Nb + j] = (byte) (state[1][j][i] & 0xff);
-            }
+    private byte[] addRoundKey(byte[] input, byte[] key) {
+        byte[] output = new byte[16];
+        for (int i = 0; i < 4; i++) {
+            output[4 * i] = (byte) (input[4 * i] ^ key[4 * i]);
+            output[4 * i + 1] = (byte) (input[4 * i + 1] ^ key[4 * i + 1]);
+            output[4 * i + 2] = (byte) (input[4 * i + 2] ^ key[4 * i + 2]);
+            output[4 * i + 3] = (byte) (input[4 * i + 3] ^ key[4 * i + 3]);
         }
         return output;
     }
 
-    private void cipher(int[][] input, int[][] output) {
-        for (int i = 0; i < input.length; i++) {
-            for (int j = 0; j < input[0].length; j++) {
-                output[i][j] = input[i][j];
-            }
+    private byte[] subByte(byte[] bytes) {
+        byte[] output = new byte[bytes.length];
+        int row, col;
+        for (int i = 0; i < bytes.length; i++) {
+            row = (bytes[i] >> 4) & 0xf;
+            col = bytes[i] & 0xf;
+            output[i] = (byte) sBox.getSBoxValue(16 * row + col);
         }
-
-        addRoundKey(output, 0);
-
-        for (int round = 1; round < Nr; round++) {
-            subBytes(output);
-            shiftRows(output);
-            mixColumns(output);
-            addRoundKey(output, round);
-        }
-
-        subBytes(output);
-        shiftRows(output);
-        addRoundKey(output, Nr);
+        return output;
     }
 
-    /**
-     * The 128 bits of a state are an XOR offset applied to them with the 128 bits of the key expended.
-     *
-     * @param state State matrix that has Nb columns and 4 rows.
-     * @param round A round of round key to be added.
-     */
-    private void addRoundKey(int[][] state, int round) {
-        for (int column = 0; column < Nb; column++) {
-            for (int row = 0; row < 4; row++) {
-                state[row][column] ^= ((roundKey[round * Nb + column] << (row * 8)) >>> 24);
-            }
-        }
-    }
-
-    private void subBytes(int[][] state) {
+    private byte[] shiftRows(byte[] input) {
+        int temp;
         for (int i = 0; i < 4; i++) {
-            for (int j = 0; j < Nb; j++) {
-                state[i][j] = subWord(state[i][j]) & 0xFF;
-            }
+            temp = (input[i] & 0xff) << 24 | (0xff & input[i + 4]) << 16 | (0xff & input[i + 8]) << 8 | input[i + 12] & 0xff;
+            temp = (temp << (i * 8)) | ((temp >>> (32 - i * 8)));
+            input[i] = (byte) ((temp >>> 24) & 0xff);
+            input[i + 4] = (byte) ((temp >>> 16) & 0xff);
+            input[i + 8] = (byte) ((temp >>> 8) & 0xff);
+            input[i + 12] = (byte) (temp & 0xff);
         }
+        return input;
     }
 
-    private void shiftRows(int[][] state) {
-        int temp1, temp2, temp3, i;
-
-        // row 1
-        temp1 = state[1][0];
-        for (i = 0; i < Nb - 1; i++) {
-            state[1][i] = state[1][(i + 1) % Nb];
-        }
-        state[1][Nb - 1] = temp1;
-
-        // row 2, moves 1-byte
-        temp1 = state[2][0];
-        temp2 = state[2][1];
-        for (i = 0; i < Nb - 2; i++) {
-            state[2][i] = state[2][(i + 2) % Nb];
-        }
-        state[2][Nb - 2] = temp1;
-        state[2][Nb - 1] = temp2;
-
-        // row 3, moves 2-bytes
-        temp1 = state[3][0];
-        temp2 = state[3][1];
-        temp3 = state[3][2];
-        for (i = 0; i < Nb - 3; i++) {
-            state[3][i] = state[3][(i + 3) % Nb];
-        }
-        state[3][Nb - 3] = temp1;
-        state[3][Nb - 2] = temp2;
-        state[3][Nb - 1] = temp3;
-    }
-
-    private void mixColumns(int[][] state) {
-        int temp0, temp1, temp2, temp3;
-        for (int c = 0; c < Nb; c++) {
-
-            temp0 = multiply(0x02, state[0][c]) ^ multiply(0x03, state[1][c]) ^ state[2][c] ^ state[3][c];
-            temp1 = state[0][c] ^ multiply(0x02, state[1][c]) ^ multiply(0x03, state[2][c]) ^ state[3][c];
-            temp2 = state[0][c] ^ state[1][c] ^ multiply(0x02, state[2][c]) ^ multiply(0x03, state[3][c]);
-            temp3 = multiply(0x03, state[0][c]) ^ state[1][c] ^ state[2][c] ^ multiply(0x02, state[3][c]);
-
-            state[0][c] = temp0;
-            state[1][c] = temp1;
-            state[2][c] = temp2;
-            state[3][c] = temp3;
-        }
-    }
-
-    private int multiply(int a, int b) {
-        int sum = 0;
-        while (a != 0) { // while it is not 0
-            if ((a & 1) != 0) { // check if the first bit is 1
-                sum = sum ^ b; // add b from the smallest bit
-            }
-            b = xtime(b); // bit shift left mod 0x11b if necessary;
-            a = a >>> 1; // lowest bit of "a" was used so shift right
-        }
-        return sum;
-    }
-
-    private static int xtime(int b) {
-        if ((b & 0x80) == 0) {
-            return b << 1;
-        }
-        return (b << 1) ^ 0x11b;
-    }
-
-
-    public byte[] decrypt(byte[] text) {
-        if (text.length != 16) {
-            throw new IllegalArgumentException("Only 16-byte blocks can be encrypted");
-        }
-
-        byte[] out = new byte[text.length];
-
-        for (int i = 0; i < Nb; i++) { // columns
-            for (int j = 0; j < 4; j++) { // rows
-                state[0][j][i] = text[i * Nb + j] & 0xff;
-            }
-        }
-
-        decipher(state[0], state[1]);
-
-        for (int i = 0; i < Nb; i++) {
-            for (int j = 0; j < 4; j++) {
-                out[i * Nb + j] = (byte) (state[1][j][i] & 0xff);
-            }
-        }
-        return out;
-    }
-
-    private void decipher(int[][] in, int[][] out) {
-        for (int i = 0; i < in.length; i++) {
-            for (int j = 0; j < in.length; j++) {
-                out[i][j] = in[i][j];
-            }
-        }
-
-        addRoundKey(out, Nr);
-
-        for (int round = Nr - 1; round > 0; round--) {
-            invShiftRows(out);
-            invSubBytes(out);
-            addRoundKey(out, round);
-            invMixColumns(out);
-        }
-
-        invShiftRows(out);
-        invSubBytes(out);
-        addRoundKey(out, 0);
-    }
-
-    private void invShiftRows(int[][] state) {
-        int temp1, temp2, temp3, i;
-
-        // row 1;
-        temp1 = state[1][Nb - 1];
-        for (i = Nb - 1; i > 0; i--) {
-            state[1][i] = state[1][(i - 1) % Nb];
-        }
-        state[1][0] = temp1;
-
-        // row 2
-        temp1 = state[2][Nb - 1];
-        temp2 = state[2][Nb - 2];
-        for (i = Nb - 1; i > 1; i--) {
-            state[2][i] = state[2][(i - 2) % Nb];
-        }
-        state[2][1] = temp1;
-        state[2][0] = temp2;
-
-        // row 3
-        temp1 = state[3][Nb - 3];
-        temp2 = state[3][Nb - 2];
-        temp3 = state[3][Nb - 1];
-        for (i = Nb - 1; i > 2; i--) {
-            state[3][i] = state[3][(i - 3) % Nb];
-        }
-        state[3][0] = temp1;
-        state[3][1] = temp2;
-        state[3][2] = temp3;
-    }
-
-    private void invSubBytes(int[][] state) {
+    private byte[] mixColumns(byte[] input) {
+        byte[] output = new byte[16];
         for (int i = 0; i < 4; i++) {
-            for (int j = 0; j < Nb; j++) {
-                state[i][j] = invSubWord(state[i][j]) & 0xFF;
+            output[4 * i] = (byte) ((FFmul((byte) 0x02, input[4 * i])) ^ (FFmul((byte) 0x03, input[4 * i + 1])) ^ (input[4 * i + 2]) ^ (input[4 * i + 3]));
+            output[4 * i + 1] = (byte) ((FFmul((byte) 0x02, input[4 * i + 1])) ^ (FFmul((byte) 0x03, input[4 * i + 2])) ^ (input[4 * i]) ^ (input[4 * i + 3]));
+            output[4 * i + 2] = (byte) ((FFmul((byte) 0x02, input[4 * i + 2])) ^ (FFmul((byte) 0x03, input[4 * i + 3])) ^ (input[4 * i + 1]) ^ (input[4 * i]));
+            output[4 * i + 3] = (byte) ((FFmul((byte) 0x02, input[4 * i + 3])) ^ (FFmul((byte) 0x03, input[4 * i])) ^ (input[4 * i + 1]) ^ (input[4 * i + 2]));
+        }
+        return output;
+    }
+
+    private byte FFmul(byte a, byte b) {
+        byte aa = a, bb = b, r = 0, t;
+        while (aa != 0) {
+            if ((aa & 1) != 0) {
+                r = (byte) (r ^ bb);
             }
+            t = (byte) (bb & 0x80);
+            bb = (byte) (bb << 1);
+            if (t != 0) {
+                bb = (byte) (bb ^ 0x1b);
+            }
+            aa = (byte) (aa >> 1);
         }
+        return r;
     }
 
-    private int invSubWord(int word) {
-        int subWord = 0;
-        for (int i = 24; i >= 0; i -= 8) {
-            int in = word << i >>> 24;
-            subWord |= sBox.getSBoxInvertValue(in) << (24 - i);
+    public byte[] decrypt(byte[] plaintext, byte[] key) {
+        int Nr, Nk;
+        switch (key.length) {
+            case 16 -> {    // 128-bit key
+                Nr = 10;
+                Nk = 4;
+            }
+
+            case 24 -> {    // 192 bit key
+                Nr = 12;
+                Nk = 6;
+            }
+
+            case 32 -> {    // 256-bit key
+                Nr = 14;
+                Nk = 8;
+            }
+
+            default -> throw new IllegalArgumentException("It only supports 128, 192 and 256 bit keys!");
         }
-        return subWord;
+
+        byte[][] roundKey = expandKey(key, Nr, Nk);
+        byte[] output = addRoundKey(plaintext, roundKey[Nr]);
+        for (int i = Nr - 1; i > 0; i--) {
+            output = invShiftRows(output);
+            output = invSubByte(output);
+            output = addRoundKey(output, roundKey[i]);
+            output = invMixColumns(output);
+        }
+
+        output = invSubByte(output);
+        output = invShiftRows(output);
+        output = addRoundKey(output, roundKey[0]);
+
+        return output;
     }
 
-    private void invMixColumns(int[][] state) {
-        int temp0, temp1, temp2, temp3;
-
-        for (int c = 0; c < Nb; c++) {
-            temp0 = multiply(0x0e, state[0][c]) ^ multiply(0x0b, state[1][c]) ^ multiply(0x0d, state[2][c]) ^ multiply(0x09, state[3][c]);
-            temp1 = multiply(0x09, state[0][c]) ^ multiply(0x0e, state[1][c]) ^ multiply(0x0b, state[2][c]) ^ multiply(0x0d, state[3][c]);
-            temp2 = multiply(0x0d, state[0][c]) ^ multiply(0x09, state[1][c]) ^ multiply(0x0e, state[2][c]) ^ multiply(0x0b, state[3][c]);
-            temp3 = multiply(0x0b, state[0][c]) ^ multiply(0x0d, state[1][c]) ^ multiply(0x09, state[2][c]) ^ multiply(0x0e, state[3][c]);
-
-            state[0][c] = temp0;
-            state[1][c] = temp1;
-            state[2][c] = temp2;
-            state[3][c] = temp3;
+    private byte[] invShiftRows(byte[] input) { // input is 4 row, 16 bytes
+        int temp;
+        for (int i = 0; i < 4; i++) {
+            temp = (input[i] & 0xff) << 24 | (0xff & input[i + 4]) << 16 | (0xff & input[i + 8]) << 8 | input[i + 12] & 0xff;
+            temp = (temp >>> (i * 8)) | ((temp << (32 - i * 8)));
+            input[i] = (byte) ((temp >>> 24) & 0xff);
+            input[i + 4] = (byte) ((temp >>> 16) & 0xff);
+            input[i + 8] = (byte) ((temp >>> 8) & 0xff);
+            input[i + 12] = (byte) (temp & 0xff);
         }
+        return input;
+    }
+
+    private byte[] invSubByte(byte[] bytes) {
+        byte[] output = new byte[bytes.length];
+        int row, col;
+        for (int i = 0; i < bytes.length; i++) {
+            row = (bytes[i] >> 4) & 0xf;
+            col = bytes[i] & 0xf;
+            output[i] = (byte) sBox.getSBoxInvertValue(16 * row + col);
+        }
+        return output;
+    }
+
+    public byte[] invMixColumns(byte[] input) {
+        byte[] output = new byte[16];
+        for (int i = 0; i < 4; i++) {
+            output[4 * i] = (byte) ((FFmul((byte) 0x0e, input[4 * i])) ^ (FFmul((byte) 0x0b, input[4 * i + 1])) ^ (FFmul((byte) 0x0d, input[4 * i + 2])) ^ (FFmul((byte) 0x09, input[4 * i + 3])));
+            output[4 * i + 1] = (byte) ((FFmul((byte) 0x09, input[4 * i])) ^ (FFmul((byte) 0x0e, input[4 * i + 1])) ^ (FFmul((byte) 0x0b, input[4 * i + 2])) ^ (FFmul((byte) 0x0d, input[4 * i + 3])));
+            output[4 * i + 2] = (byte) ((FFmul((byte) 0x0d, input[4 * i])) ^ (FFmul((byte) 0x09, input[4 * i + 1])) ^ (FFmul((byte) 0x0e, input[4 * i + 2])) ^ (FFmul((byte) 0x0b, input[4 * i + 3])));
+            output[4 * i + 3] = (byte) ((FFmul((byte) 0x0b, input[4 * i])) ^ (FFmul((byte) 0x0d, input[4 * i + 1])) ^ (FFmul((byte) 0x09, input[4 * i + 2])) ^ (FFmul((byte) 0x0e, input[4 * i + 3])));
+        }
+        return output;
     }
 }
