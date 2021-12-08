@@ -45,6 +45,7 @@ public class HomeViewModel {
         for (byte b : output.toByteArray()) {
             System.out.printf("%02x ", b);
         }
+        System.out.println();
 
         String textEncrypted = Base64.getEncoder().encodeToString(output.toByteArray());
         _textEncrypted.postValue(textEncrypted);
@@ -67,7 +68,7 @@ public class HomeViewModel {
             }
 
             default -> {
-                return "Invalid key! It only supports 128, 192 and 256 bit keys.";
+                return "Invalid key! It only supports length 16, 24, 32 characters.";
             }
         }
     }
@@ -104,10 +105,7 @@ public class HomeViewModel {
                 _decryptTime.postValue(decryptTime);
             }
 
-            default -> {
-                String message = "Invalid key! It only supports 128, 192 and 256 bit keys.";
-                _errorMessage.postValue(message);
-            }
+            default -> _errorMessage.postValue("Invalid key! It only supports length 16, 24, 32 characters.");
         }
     }
 

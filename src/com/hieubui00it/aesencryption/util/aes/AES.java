@@ -35,18 +35,18 @@ public class AES {
             default -> throw new IllegalArgumentException("It only supports 128, 192 and 256 bit keys!");
         }
 
-        byte[][] roundKey = expandKey(key, Nr, Nk);
-        byte[] output = addRoundKey(plaintext, roundKey[0]);
+        byte[][] state = expandKey(key, Nr, Nk);
+        byte[] output = addRoundKey(plaintext, state[0]);
         for (int i = 1; i < Nr; i++) {
             output = subByte(output);
             output = shiftRows(output);
             output = mixColumns(output);
-            output = addRoundKey(output, roundKey[i]);
+            output = addRoundKey(output, state[i]);
         }
 
         output = subByte(output);
         output = shiftRows(output);
-        output = addRoundKey(output, roundKey[Nr]);
+        output = addRoundKey(output, state[Nr]);
 
         return output;
     }
@@ -74,18 +74,18 @@ public class AES {
         }
 
         int k = 0;
-        byte[][] roundKey = new byte[output.length / 4][16];
+        byte[][] state = new byte[output.length / 4][16];
         for (int i = 0; i < output.length / 4; i++) {
             for (int j = 0; j < 4; j++) {
                 int tempInt = output[k++];
-                roundKey[i][j * 4] = (byte) (0xff & (tempInt >> 24));
-                roundKey[i][j * 4 + 1] = (byte) (0xff & (tempInt >> 16));
-                roundKey[i][j * 4 + 2] = (byte) (0xff & (tempInt >> 8));
-                roundKey[i][j * 4 + 3] = (byte) (0xff & tempInt);
+                state[i][j * 4] = (byte) (0xff & (tempInt >> 24));
+                state[i][j * 4 + 1] = (byte) (0xff & (tempInt >> 16));
+                state[i][j * 4 + 2] = (byte) (0xff & (tempInt >> 8));
+                state[i][j * 4 + 3] = (byte) (0xff & tempInt);
             }
         }
 
-        return roundKey;
+        return state;
     }
 
     private int rotWord(int word) {
@@ -189,18 +189,18 @@ public class AES {
             default -> throw new IllegalArgumentException("It only supports 128, 192 and 256 bit keys!");
         }
 
-        byte[][] roundKey = expandKey(key, Nr, Nk);
-        byte[] output = addRoundKey(plaintext, roundKey[Nr]);
+        byte[][] state = expandKey(key, Nr, Nk);
+        byte[] output = addRoundKey(plaintext, state[Nr]);
         for (int i = Nr - 1; i > 0; i--) {
             output = invShiftRows(output);
             output = invSubByte(output);
-            output = addRoundKey(output, roundKey[i]);
+            output = addRoundKey(output, state[i]);
             output = invMixColumns(output);
         }
 
         output = invSubByte(output);
         output = invShiftRows(output);
-        output = addRoundKey(output, roundKey[0]);
+        output = addRoundKey(output, state[0]);
 
         return output;
     }
