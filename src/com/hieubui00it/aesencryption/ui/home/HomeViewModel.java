@@ -17,9 +17,9 @@ import java.util.Base64;
 
 public class HomeViewModel {
     private final MutableLiveData<String> _textEncrypted = new MutableLiveData<>();
-    private final MutableLiveData<Long> _encryptTime = new MutableLiveData<>();
+    private final MutableLiveData<Double> _encryptTime = new MutableLiveData<>();
     private final MutableLiveData<String> _textDecrypted = new MutableLiveData<>();
-    private final MutableLiveData<Long> _decryptTime = new MutableLiveData<>();
+    private final MutableLiveData<Double> _decryptTime = new MutableLiveData<>();
     private final MutableLiveData<String> _errorMessage = new MutableLiveData<>();
 
     public void encrypt(@NotNull String encryptKey, @NotNull String plaintext) {
@@ -49,7 +49,7 @@ public class HomeViewModel {
 
         String textEncrypted = Base64.getEncoder().encodeToString(output.toByteArray());
         _textEncrypted.postValue(textEncrypted);
-        _encryptTime.postValue(encryptTime);
+        _encryptTime.postValue(encryptTime / 1000000.0);
     }
 
     @Nullable
@@ -102,7 +102,7 @@ public class HomeViewModel {
                 long decryptTime = System.nanoTime() - startTime;
 
                 _textDecrypted.postValue(output.toString().replace("\0", ""));
-                _decryptTime.postValue(decryptTime);
+                _decryptTime.postValue(decryptTime / 1000000.0);
             }
 
             default -> _errorMessage.postValue("Invalid key! It only supports length 16, 24, 32 characters.");
@@ -134,7 +134,7 @@ public class HomeViewModel {
         return _textEncrypted;
     }
 
-    public LiveData<Long> getEncryptTime() {
+    public LiveData<Double> getEncryptTime() {
         return _encryptTime;
     }
 
@@ -142,7 +142,7 @@ public class HomeViewModel {
         return _textDecrypted;
     }
 
-    public LiveData<Long> getDecryptTime() {
+    public LiveData<Double> getDecryptTime() {
         return _decryptTime;
     }
 

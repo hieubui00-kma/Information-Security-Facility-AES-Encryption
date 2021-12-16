@@ -159,11 +159,11 @@ public class Home extends JPanel {
     private void setObservers() {
         viewModel.getTextEncrypted().observer(textEncrypted -> fieldEncryptedText.setText(textEncrypted));
 
-        viewModel.getEncryptTime().observer(encryptTime -> labelEncryptTime.setText(encryptTime + " ns"));
+        viewModel.getEncryptTime().observer(encryptTime -> labelEncryptTime.setText(encryptTime + " ms"));
 
         viewModel.getTextDecrypted().observer(textDecrypted -> fieldDecryptedText.setText(textDecrypted));
 
-        viewModel.getDecryptTime().observer(decryptTime -> labelDecryptTime.setText(decryptTime + " ns"));
+        viewModel.getDecryptTime().observer(decryptTime -> labelDecryptTime.setText(decryptTime + " ms"));
 
         viewModel.getErrorMessage().observer(errorMessage -> JOptionPane.showMessageDialog(this, errorMessage));
     }
