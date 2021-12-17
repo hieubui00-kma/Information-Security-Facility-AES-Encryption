@@ -3,6 +3,7 @@ package com.hieubui00it.aesencryption.ui.home;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.util.Objects;
 
 import static com.hieubui00it.aesencryption.util.Constants.*;
 
@@ -14,6 +15,7 @@ public class Home extends JPanel {
     private JLabel labelEncryptTime;
     private JLabel labelDecryptTime;
     private JTextField fieldKey;
+    private JComboBox<String> boxKeyType;
     private JTextArea fieldOriginalText;
     private JTextArea fieldEncryptedText;
     private JTextArea fieldDecryptedText;
@@ -32,6 +34,7 @@ public class Home extends JPanel {
         setLayout(null);
 
         setupKeyField();
+        setupKeyTypesBox();
         setupOriginalTextField();
         setupEncryptField();
         setupDecryptField();
@@ -50,6 +53,15 @@ public class Home extends JPanel {
         fieldKey.setFont(new Font(FONT_TAHOMA, Font.PLAIN, 14));
         fieldKey.setColumns(10);
         add(fieldKey);
+    }
+
+    private void setupKeyTypesBox() {
+        String[] keyTypes = {"128-bit", "192-bit", "256-bit"};
+        boxKeyType = new JComboBox<>(keyTypes);
+        boxKeyType.setBounds(400, 25, 100, 30);
+        boxKeyType.setBackground(Color.WHITE);
+        boxKeyType.setFont(new Font(FONT_TAHOMA, Font.BOLD, 14));
+        add(boxKeyType);
     }
 
     private void setupOriginalTextField() {
@@ -111,8 +123,9 @@ public class Home extends JPanel {
 
     public void encrypt() {
         String key = fieldKey.getText().trim();
+        String keyType = Objects.requireNonNull((String) boxKeyType.getSelectedItem());
         String plaintext = fieldOriginalText.getText();
-        viewModel.encrypt(key, plaintext);
+        viewModel.encrypt(key, keyType, plaintext);
     }
 
     private void setupDecryptField() {
@@ -152,8 +165,9 @@ public class Home extends JPanel {
 
     public void decrypt() {
         String key = fieldKey.getText().trim();
+        String keyType = Objects.requireNonNull((String) boxKeyType.getSelectedItem());
         String ciphertext = fieldEncryptedText.getText();
-        viewModel.decrypt(key, ciphertext);
+        viewModel.decrypt(key, keyType, ciphertext);
     }
 
     private void setObservers() {
@@ -165,6 +179,8 @@ public class Home extends JPanel {
 
         viewModel.getDecryptTime().observer(decryptTime -> labelDecryptTime.setText(decryptTime + " ms"));
 
-        viewModel.getErrorMessage().observer(errorMessage -> JOptionPane.showMessageDialog(this, errorMessage));
+        viewModel.getErrorMessage().observer(errorMessage -> {
+            JOptionPane.showMessageDialog(this, errorMessage, "Error", JOptionPane.ERROR_MESSAGE);
+        });
     }
 }

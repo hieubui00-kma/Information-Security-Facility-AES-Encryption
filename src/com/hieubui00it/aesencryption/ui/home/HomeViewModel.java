@@ -22,8 +22,12 @@ public class HomeViewModel {
     private final MutableLiveData<Double> _decryptTime = new MutableLiveData<>();
     private final MutableLiveData<String> _errorMessage = new MutableLiveData<>();
 
-    public void encrypt(@NotNull String encryptKey, @NotNull String plaintext) {
-        String errorMessage = validateEncryptInput(encryptKey, plaintext);
+    public void encrypt(
+        @NotNull String encryptKey,
+        @NotNull String keyType,
+        @NotNull String plaintext
+    ) {
+        String errorMessage = validateEncryptInput(encryptKey, keyType, plaintext);
         if (errorMessage != null) {
             _errorMessage.postValue(errorMessage);
             return;
@@ -42,18 +46,28 @@ public class HomeViewModel {
             }
         }
         long encryptTime = System.nanoTime() - startTime;
-        for (byte b : output.toByteArray()) {
-            System.out.printf("%02x ", b);
-        }
-        System.out.println();
+
+        showEncryptedBytes(output);
 
         String textEncrypted = Base64.getEncoder().encodeToString(output.toByteArray());
         _textEncrypted.postValue(textEncrypted);
         _encryptTime.postValue(encryptTime / 1000000.0);
     }
 
+    private void showEncryptedBytes(ByteArrayOutputStream encryptedBytes) {
+        StringBuilder stringBuilder = new StringBuilder();
+        for (byte b : encryptedBytes.toByteArray()) {
+            stringBuilder.append(String.format("%02x", b));
+        }
+        System.out.println(stringBuilder);
+    }
+
     @Nullable
-    private String validateEncryptInput(@NotNull String encryptKey, @NotNull String plaintext) {
+    private String validateEncryptInput(
+        @NotNull String encryptKey,
+        @NotNull String keyType,
+        @NotNull String plaintext
+    ) {
         if (encryptKey.isBlank()) {
             return "Enter your key";
         }
@@ -62,15 +76,12 @@ public class HomeViewModel {
             return "Enter your plaintext";
         }
 
-        switch (encryptKey.length()) {
-            case 16, 24, 32 -> { // 128-bit, 192-bit, 256-bit
-                return null;
-            }
-
-            default -> {
-                return "Invalid key! It only supports length 16, 24, 32 characters.";
-            }
+        int keyTypeLength = Integer.parseInt(keyType.replace("-bit", "")) / 8;
+        if (encryptKey.length() == keyTypeLength) {
+            return null;
         }
+
+        return "Invalid key! It only supports length " + keyTypeLength + " characters for " + keyType + ".";
     }
 
     private String fillBlock(String text) {
@@ -78,8 +89,12 @@ public class HomeViewModel {
         return text + "\0".repeat(spaceNum);
     }
 
-    public void decrypt(@NotNull String decryptKey, @NotNull String ciphertext) {
-        String errorMessage = validateDecryptInput(decryptKey, ciphertext);
+    public void decrypt(
+        @NotNull String decryptKey,
+        @NotNull String keyType,
+        @NotNull String ciphertext
+    ) {
+        String errorMessage = validateDecryptInput(decryptKey, keyType, ciphertext);
         if (errorMessage != null) {
             _errorMessage.postValue(errorMessage);
             return;
@@ -88,7 +103,14 @@ public class HomeViewModel {
         switch (decryptKey.length()) {
             case 16, 24, 32 -> {    // 128-bit, 192-bit, 256-bit
                 AES aes = new AES();
-                byte[] ciphertextBytes = Base64.getDecoder().decode(ciphertext);
+
+                byte[] ciphertextBytes;
+                try {
+                    ciphertextBytes = Base64.getDecoder().decode(ciphertext);
+                } catch (Exception exception) {
+                    _errorMessage.postValue("Invalid ciphertext!");
+                    return;
+                }
 
                 long startTime = System.nanoTime();
                 ByteArrayOutputStream output = new ByteArrayOutputStream();
@@ -110,7 +132,11 @@ public class HomeViewModel {
     }
 
     @Nullable
-    private String validateDecryptInput(@NotNull String decryptKey, @NotNull String ciphertext) {
+    private String validateDecryptInput(
+        @NotNull String decryptKey,
+        @NotNull String keyType,
+        @NotNull String ciphertext
+    ) {
         if (decryptKey.isBlank()) {
             return "Enter your key";
         }
@@ -119,15 +145,12 @@ public class HomeViewModel {
             return "Enter your ciphertext";
         }
 
-        switch (decryptKey.length()) {
-            case 16, 24, 32 -> { // 128-bit, 192-bit, 256-bit
-                return null;
-            }
-
-            default -> {
-                return "Invalid key! It only supports 128, 192 and 256 bit keys.";
-            }
+        int keyTypeLength = Integer.parseInt(keyType.replace("-bit", "")) / 8;
+        if (decryptKey.length() == keyTypeLength) {
+            return null;
         }
+
+        return "Invalid key! It only supports length " + keyTypeLength + " characters for " + keyType + ".";
     }
 
     public LiveData<String> getTextEncrypted() {
