@@ -38,13 +38,13 @@ public class AES {
         byte[][] state = expandKey(key, Nr, Nk);
         byte[] output = addRoundKey(plaintext, state[0]);
         for (int i = 1; i < Nr; i++) {
-            output = subByte(output);
+            output = subBytes(output);
             output = shiftRows(output);
             output = mixColumns(output);
             output = addRoundKey(output, state[i]);
         }
 
-        output = subByte(output);
+        output = subBytes(output);
         output = shiftRows(output);
         output = addRoundKey(output, state[Nr]);
 
@@ -66,7 +66,7 @@ public class AES {
             temp = output[i - 1];
             if (i % Nk == 0) {
                 int subWord = subWord(rotWord(temp));
-                temp = subWord ^ getRcon(i / Nk);
+                temp = subWord ^ (rcon.getRconValue(i / Nk) << 24);
             } else if ((Nk > 6) && (i % Nk == 4)) {
                 temp = subWord(temp);
             }
@@ -102,10 +102,6 @@ public class AES {
         return subWord;
     }
 
-    private int getRcon(int index) {
-        return rcon.getRconValue(index) << 24;
-    }
-
     private byte[] addRoundKey(byte[] input, byte[] key) {
         byte[] output = new byte[16];
         for (int i = 0; i < 4; i++) {
@@ -117,7 +113,7 @@ public class AES {
         return output;
     }
 
-    private byte[] subByte(byte[] bytes) {
+    private byte[] subBytes(byte[] bytes) {
         byte[] output = new byte[bytes.length];
         int row, col;
         for (int i = 0; i < bytes.length; i++) {
@@ -193,12 +189,12 @@ public class AES {
         byte[] output = addRoundKey(plaintext, state[Nr]);
         for (int i = Nr - 1; i > 0; i--) {
             output = invShiftRows(output);
-            output = invSubByte(output);
+            output = invSubBytes(output);
             output = addRoundKey(output, state[i]);
             output = invMixColumns(output);
         }
 
-        output = invSubByte(output);
+        output = invSubBytes(output);
         output = invShiftRows(output);
         output = addRoundKey(output, state[0]);
 
@@ -218,7 +214,7 @@ public class AES {
         return input;
     }
 
-    private byte[] invSubByte(byte[] bytes) {
+    private byte[] invSubBytes(byte[] bytes) {
         byte[] output = new byte[bytes.length];
         int row, col;
         for (int i = 0; i < bytes.length; i++) {
@@ -229,7 +225,7 @@ public class AES {
         return output;
     }
 
-    public byte[] invMixColumns(byte[] input) {
+    private byte[] invMixColumns(byte[] input) {
         byte[] output = new byte[16];
         for (int i = 0; i < 4; i++) {
             output[4 * i] = (byte) ((FFmul((byte) 0x0e, input[4 * i])) ^ (FFmul((byte) 0x0b, input[4 * i + 1])) ^ (FFmul((byte) 0x0d, input[4 * i + 2])) ^ (FFmul((byte) 0x09, input[4 * i + 3])));
