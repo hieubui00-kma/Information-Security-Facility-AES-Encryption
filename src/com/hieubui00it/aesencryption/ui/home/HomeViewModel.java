@@ -68,11 +68,11 @@ public class HomeViewModel {
         @NotNull String keyType,
         @NotNull String plaintext
     ) {
-        if (encryptKey.isBlank()) {
+        if (encryptKey.isEmpty()) {
             return "Enter your key";
         }
 
-        if (plaintext.isBlank()) {
+        if (plaintext.isEmpty()) {
             return "Enter your plaintext";
         }
 
@@ -137,11 +137,11 @@ public class HomeViewModel {
         @NotNull String keyType,
         @NotNull String ciphertext
     ) {
-        if (decryptKey.isBlank()) {
+        if (decryptKey.isEmpty()) {
             return "Enter your key";
         }
 
-        if (ciphertext.isBlank()) {
+        if (ciphertext.isEmpty()) {
             return "Enter your ciphertext";
         }
 

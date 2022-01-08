@@ -122,7 +122,7 @@ public class Home extends JPanel {
     }
 
     public void encrypt() {
-        String key = fieldKey.getText().trim();
+        String key = fieldKey.getText();
         String keyType = Objects.requireNonNull((String) boxKeyType.getSelectedItem());
         String plaintext = fieldOriginalText.getText();
         viewModel.encrypt(key, keyType, plaintext);
@@ -164,7 +164,7 @@ public class Home extends JPanel {
     }
 
     public void decrypt() {
-        String key = fieldKey.getText().trim();
+        String key = fieldKey.getText();
         String keyType = Objects.requireNonNull((String) boxKeyType.getSelectedItem());
         String ciphertext = fieldEncryptedText.getText();
         viewModel.decrypt(key, keyType, ciphertext);
