@@ -179,8 +179,10 @@ public class Home extends JPanel {
 
         viewModel.getDecryptTime().observer(decryptTime -> labelDecryptTime.setText(decryptTime + " ms"));
 
-        viewModel.getErrorMessage().observer(errorMessage -> {
-            JOptionPane.showMessageDialog(this, errorMessage, "Error", JOptionPane.ERROR_MESSAGE);
-        });
+        viewModel.getErrorMessage().observer(this::showErrorMessage);
+    }
+
+    private void showErrorMessage(String errorMessage) {
+        JOptionPane.showMessageDialog(this, errorMessage, "Error", JOptionPane.ERROR_MESSAGE);
     }
 }
